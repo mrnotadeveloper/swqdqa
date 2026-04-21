@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Terminal">
+    <title>vivek@wks01: /tmp</title>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --window-frame: #D3D7CF;
+            --tab-active: #FFFFFF;
+            --tab-inactive: #B0B0B0;
+            --term-cyan: #34E2E2;
+            --term-blue: #729FCF;
+            --term-green: #8AE234;
+            --term-yellow: #FCE94F;
+            --term-red: #EF2929;
+            --term-white: #EEEEEC;
+            --text-ghost: #555753;
+        }
+
+        html, body {
+            background-color: #333; /* Outer background for iPad margins */
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            -webkit-user-select: none;
+        }
+
+        /* The Window Frame mimicking the image */
+        .window {
+            background-color: var(--bg-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* Title Bar */
+        .title-bar {
+            background: linear-gradient(to bottom, #E0E0E0, #B0B0B0);
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #333;
+            font-weight: bold;
+            border-bottom: 1px solid #666;
+            padding-top: env(safe-area-inset-top);
+        }
+
+        /* Tabs Bar */
+        .tabs {
+            background-color: #D3D7CF;
+            display: flex;
+            font-size: 12px;
+            border-bottom: 1px solid #555753;
+        }
+
+        .tab {
+            padding: 6px 20px;
+            border-right: 1px solid #888;
+            background-color: #BABDB6;
+            color: #555753;
+        }
+
+        .tab.active {
+            background-color: var(--bg-color);
+            color: var(--term-white);
+            border-bottom: none;
+        }
+
+        /* Terminal Content Container */
+        .terminal-content {
+            flex: 1;
+            padding: 10px;
+            color: var(--term-white);
+            font-size: 13px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* DSTAT Headers (Static) */
+        .dstat-header { line-height: 1.2; margin-bottom: 5px; }
+        .cyan { color: var(--term-cyan); }
+        .blue { color: var(--term-blue); }
+        .white { color: var(--term-white); }
+        
+        /* The Typing Log Section */
+        .log-history {
+            color: #AAAAAA;
+            opacity: 0.8;
+        }
+
+        .typing-area {
+            margin-top: 10px;
+            font-size: 15px; /* Slightly larger for iPad readability */
+            line-height: 1.5;
+            position: relative;
+        }
+
+        .prompt { color: var(--term-white); font-weight: bold; margin-right: 8px;}
+
+        /* Text Styles */
+        .correct { color: var(--term-green); }
+        .target { color: var(--text-ghost); }
+        .incorrect { background-color: var(--term-red); color: white; }
+
+        .cursor {
+            background-color: #fff;
+            color: #000;
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink {
+            50% { background-color: transparent; color: inherit; }
+        }
+
+        #hidden-input {
+            position: absolute;
+            top: -9999px;
+            opacity: 0;
+        }
+
+        .safe-bottom {
+            height: env(safe-area-inset-bottom);
+        }
+    </style>
+</head>
+<body onclick="document.getElementById('hidden-input').focus()">
+
+    <div class="window">
+        <div class="title-bar">vivek@wks01: /tmp</div>
+        
+        <div class="tabs">
+            <div class="tab active">vivek@wks01: /tmp</div>
+            <div class="tab">vivek@wks01: /tmp</div>
+        </div>
+
+        <div class="terminal-content">
+            <div class="dstat-header">
+<span class="white">vivek@wks01:/tmp$ dstat</span>
+<span class="white">You did not select any stats, using -cdngy by default.</span>
+<span class="white">Terminal width too small, trimming output.</span>
+<span class="blue">----total-cpu-usage---- -dsk/total- -net/total- ---paging--&gt;</span>
+<span class="blue">usr sys idl wai hiq siq| read  writ| recv  send|  in   out &gt;</span>
+<div id="fake-data"></div>
+            </div>
+
+            <div class="log-history" id="history"></div>
+
+            <div class="typing-area">
+                <span class="prompt">vivek@wks01:/tmp$</span><span id="typing-text"></span>
+            </div>
+            
+            <div class="safe-bottom"></div>
+        </div>
+    </div>
+
+    <input type="text" id="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+
+    <script>
+        const paragraphs = [
+            "The integration of neural-link protocols into the core kernel requires a deep understanding of asynchronous interrupt handling. By prioritizing high-bandwidth data streams, the system can effectively mitigate the latency spikes typically associated with heavy I/O operations in virtualized environments.",
+            "Analyzing the socio-economic trajectory of late-stage digital capitalism reveals a marked shift toward algorithmic governance. As centralized platforms consolidate power, the necessity for robust, decentralized cryptographic alternatives becomes increasingly apparent to maintain individual sovereignty.",
+            "The thermodynamic laws governing closed systems suggest that entropy will inevitably increase over time unless external energy is introduced. In the context of information theory, this manifests as signal degradation within long-range transmission vectors, necessitating complex error-correction algorithms.",
+            "Advancements in quantum computing have rendered traditional RSA encryption methods vulnerable to Shor's algorithm. To safeguard global financial systems, a transition to post-quantum cryptographic standards is no longer a theoretical exercise but a matter of immediate national security.",
+            "Urban planning in the twenty-first century must account for the rapid rise of autonomous transport networks. By designing cities with modular infrastructure, municipalities can adapt to shifting population densities while simultaneously reducing the carbon footprint of the metropolitan transit system."
+        ];
+
+        let currentTarget = "";
+        let typedText = "";
+        let historyArr = [];
+        
+        const historyEl = document.getElementById('history');
+        const typingEl = document.getElementById('typing-text');
+        const inputEl = document.getElementById('hidden-input');
+        const fakeDataEl = document.getElementById('fake-data');
+
+        // Generates the "Hacker Numbers" at the top like in your image
+        function generateFakeDstat() {
+            let lines = "";
+            for(let i=0; i<5; i++) {
+                lines += `<span style="color:var(--term-red)">${Math.floor(Math.random()*9)}</span>  <span style="color:var(--term-red)">${Math.floor(Math.random()*5)}</span> <span style="color:var(--term-green)">${80+Math.floor(Math.random()*19)}</span>   0   0   0| <span style="color:var(--term-yellow)">${Math.floor(Math.random()*99)}k</span> <span style="color:var(--term-yellow)">${Math.floor(Math.random()*999)}k</span>| <span style="color:var(--term-yellow)">${Math.floor(Math.random()*500)}k</span>  <span style="color:var(--term-yellow)">${Math.floor(Math.random()*30)}k</span>|   0     0 &gt;<br>`;
+            }
+            fakeDataEl.innerHTML = lines;
+        }
+
+        function init() {
+            currentTarget = paragraphs[Math.floor(Math.random() * paragraphs.length)];
+            generateFakeDstat();
+            render();
+            inputEl.focus();
+        }
+
+        inputEl.addEventListener('input', () => {
+            typedText = inputEl.value;
+
+            if (typedText === currentTarget) {
+                // When paragraph is done, move it to history and get a new one
+                historyArr.push(currentTarget);
+                if (historyArr.length > 3) historyArr.shift(); // Keep only last few for space
+                
+                currentTarget = paragraphs[Math.floor(Math.random() * paragraphs.length)];
+                typedText = "";
+                inputEl.value = "";
+                generateFakeDstat(); // Refresh hacker numbers
+            }
+            render();
+        });
+
+        function render() {
+            // Render History
+            historyEl.innerHTML = historyArr.map(h => `<div><span class="prompt">vivek@wks01:/tmp$</span> ${h}</div>`).join('');
+
+            // Render Current Typing
+            let html = '';
+            for (let i = 0; i < currentTarget.length; i++) {
+                let char = currentTarget[i];
+                let displayChar = char === ' ' ? '&nbsp;' : char;
+
+                if (i < typedText.length) {
+                    if (typedText[i] === char) {
+                        html += `<span class="correct">${displayChar}</span>`;
+                    } else {
+                        html += `<span class="incorrect">${typedText[i] === ' ' ? '&nbsp;' : typedText[i]}</span>`;
+                    }
+                } else if (i === typedText.length) {
+                    html += `<span class="cursor">${displayChar}</span>`;
+                } else {
+                    html += `<span class="target">${displayChar}</span>`;
+                }
+            }
+            typingEl.innerHTML = html;
+        }
+
+        // Prevent space bar from scrolling the page
+        window.addEventListener('keydown', (e) => {
+            if (e.key === ' ' && e.target === document.body) e.preventDefault();
+        });
+
+        init();
+        setInterval(generateFakeDstat, 3000); // Numbers change every 3 seconds
+    </script>
+</body>
+</html>
