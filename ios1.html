@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- These meta tags are crucial for iPad: They force fullscreen native app mode and hide Safari UI -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SysLog">
+    <title>Darwin Kernel Logs</title>
+    
+    <style>
+        :root {
+            --bg-color: #000000;
+            --text-correct: #FFFFFF;
+            --text-ghost: #4A4A4C;
+            --text-error: #FF453A;
+            --error-bg: rgba(255, 69, 58, 0.3);
+            --cursor-color: #FFFFFF;
+        }
+
+        html, body {
+            background-color: var(--bg-color);
+            color: var(--text-correct);
+            /* Menlo is Apple's native Xcode/Terminal monospace font */
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            box-sizing: border-box;
+            -webkit-font-smoothing: none;
+            cursor: text;
+            /* Prevents accidental highlighting of text when tapping on iPad */
+            -webkit-user-select: none;
+            user-select: none;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        /* Safe area padding ensures text doesn't hide behind the iPad notch or home indicator */
+        .terminal-container {
+            padding: env(safe-area-inset-top, 20px) 
+                     env(safe-area-inset-right, 20px) 
+                     env(safe-area-inset-bottom, 50px) 
+                     env(safe-area-inset-left, 20px);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            display: flex;
+            flex-direction: column;
+            min-height: 100%;
+            justify-content: flex-end; /* Keeps text flowing from the bottom if preferred, or top */
+        }
+
+        .log-line {
+            margin-bottom: 2px;
+            display: block;
+        }
+
+        /* Text States */
+        .correct { color: var(--text-correct); }
+        .target { color: var(--text-ghost); }
+        .incorrect { 
+            color: var(--text-error); 
+            background-color: var(--error-bg);
+        }
+
+        /* Terminal block cursor */
+        .cursor {
+            display: inline-block;
+            width: 0.6em;
+            height: 1.2em;
+            background-color: var(--cursor-color);
+            color: #000;
+            vertical-align: text-bottom;
+            animation: blink 1s step-end infinite;
+            position: relative;
+            z-index: 2;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .cursor-end {
+            display: inline-block;
+            width: 0.6em;
+            height: 1.2em;
+            background-color: var(--cursor-color);
+            vertical-align: text-bottom;
+            animation: blink 1s step-end infinite;
+        }
+
+        /* Hidden input strictly for iPad software keyboard capture */
+        #hidden-input {
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+            opacity: 0;
+            width: 1px;
+            height: 1px;
+        }
+    </style>
+</head>
+<body onclick="focusInput()">
+
+    <div class="terminal-container" id="terminal">
+        <!-- Rendered text goes here -->
+    </div>
+    
+    <input type="text" id="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+
+    <script>
+        // Authentic iOS/Darwin kernel boot logs and system daemon tasks
+        const iosLogs =[
+            "[    0.000000] Darwin Kernel Version 23.4.0: Fri Mar 15 00:10:42 PDT 2024; root:xnu-10002.101.1~1",
+            "[    0.054321] iBoot version: iBoot-10151.101.3",
+            "[    0.103214] secure boot enabled, enforcing AMFI restrictions",
+            "[    0.423984] AppleFileSystemDriver: recognizing APFS container on disk0s1",
+            "[    0.893245] IOUserServer: starting com.apple.driver.AppleMobileDisks",
+            "[    1.105432] launchd[1]: System boot complete. Starting SpringBoard initialization.",
+            "[    1.156872] Sandbox: SpringBoard(52) deny(1) mach-lookup com.apple.frontboard.systemappservices",
+            "[    1.402123] IOMobileFramebuffer: setting display backlight to default value 255",
+            "[    2.112489] AppleMobileFileIntegrity: loaded provisioning profile validation policy",
+            "[    2.892314] CoreLocation: daemon started, analyzing GPS baseband",
+            "[    3.021345] networkd[102]: NWPathEvaluator starting Wi-Fi interface en0",
+            "[    3.541234] CommCenter[88]: establishing connection to cellular baseband",
+            "[    4.113421] SpringBoard[52]: FrontBoard services ready, transitioning to active state",
+            "[    4.892341] securityd[94]: initializing keychain trust store",
+            "[    5.234123] watchdogd[45]: starting thermal monitoring threshold evaluation",
+            "[    5.892314] com.apple.xpc.launchd[1] (com.apple.locationd.41): Service exited due to SIGTERM",
+            "[    6.012341] logd[23]: metadata cleanup complete, rotated 4 files",
+            "[    6.451239] kernel: PMRD: display screen turned on",
+            "[    7.123456] backboardd[48]: posting display brightness notification (level: 0.85)",
+            "[    7.892341] mediaserverd[66]: initializing audio session routing"
+        ];
+
+        let history =[];
+        let currentTarget = "";
+        let typedText = "";
+        let logIndex = 0; // Goes sequentially to look like a real boot sequence
+        
+        const terminalEl = document.getElementById('terminal');
+        const inputEl = document.getElementById('hidden-input');
+
+        function getNextLog() {
+            const log = iosLogs[logIndex];
+            logIndex = (logIndex + 1) % iosLogs.length; // loop back to start if we run out
+            return log;
+        }
+
+        function init() {
+            currentTarget = getNextLog();
+            
+            // Populate some history to make it look like we are mid-process
+            history.push("System Initialization...");
+            history.push("Loading base device tree...");
+            
+            render();
+            focusInput();
+            
+            // Stop spacebar from scrolling on attached keyboards
+            window.addEventListener('keydown', function(e) {
+                if(e.key === ' ' && e.target === document.body) {
+                    e.preventDefault();
+                }
+            });
+        }
+
+        function focusInput() {
+            inputEl.focus();
+        }
+
+        inputEl.addEventListener('input', () => {
+            typedText = inputEl.value;
+
+            // Auto-advance
+            if (typedText === currentTarget) {
+                history.push(currentTarget);
+                currentTarget = getNextLog();
+                typedText = "";
+                inputEl.value = "";
+                
+                // Keep history trimmed to avoid infinitely large DOM causing lag on iPad
+                if (history.length > 40) {
+                    history.shift();
+                }
+            }
+            render();
+        });
+
+        function escapeHtml(char) {
+            if (char === '&') return "&amp;";
+            if (char === '<') return "&lt;";
+            if (char === '>') return "&gt;";
+            if (char === '"') return "&quot;";
+            if (char === "'") return "&#039;";
+            return char;
+        }
+
+        function render() {
+            let html = '';
+
+            // Render past lines
+            for (let h of history) {
+                html += `<div class="log-line">${escapeHtml(h)}</div>`;
+            }
+
+            // Render current line
+            html += `<div class="log-line">`;
+            
+            for (let i = 0; i < currentTarget.length; i++) {
+                let char = currentTarget[i];
+                let displayChar = char === ' ' ? '&nbsp;' : escapeHtml(char);
+
+                if (i < typedText.length) {
+                    // Typed characters
+                    if (typedText[i] === char) {
+                        html += `<span class="correct">${displayChar}</span>`;
+                    } else {
+                        html += `<span class="incorrect">${escapeHtml(typedText[i])}</span>`;
+                    }
+                } else if (i === typedText.length) {
+                    // Cursor location over the next required character
+                    html += `<span class="cursor">${displayChar}</span>`;
+                } else {
+                    // Untyped ghost text
+                    html += `<span class="target">${displayChar}</span>`;
+                }
+            }
+
+            // If user types past the required string length
+            if (typedText.length >= currentTarget.length) {
+                for (let i = currentTarget.length; i < typedText.length; i++) {
+                    html += `<span class="incorrect">${escapeHtml(typedText[i])}</span>`;
+                }
+                html += `<span class="cursor-end"></span>`;
+            }
+
+            html += `</div>`;
+
+            terminalEl.innerHTML = html;
+
+            // Snap to bottom seamlessly
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
