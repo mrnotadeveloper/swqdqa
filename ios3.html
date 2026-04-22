@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SecureLog">
+    <title>bash — 80x24</title>
+    
+    <style>
+        :root {
+            --bg-color: #000000;
+            --text-primary: #D1D1D1;
+            --text-ghost: #333333;
+            --text-error: #FF453A;
+            --accent: #5E5E5E;
+            --prompt-color: #FFFFFF;
+        }
+
+        html, body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #terminal-wrapper {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            padding: env(safe-area-inset-top, 20px) 25px calc(env(safe-area-inset-bottom, 20px) + 40px) 25px;
+            box-sizing: border-box;
+        }
+
+        .header-banner {
+            color: var(--text-primary);
+            margin-bottom: 25px;
+            white-space: pre-wrap;
+            border-bottom: 1px solid var(--accent);
+            padding-bottom: 15px;
+            opacity: 0.8;
+        }
+
+        .log-line {
+            display: block;
+            margin-bottom: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .timestamp {
+            color: var(--accent);
+            margin-right: 12px;
+            font-size: 11px;
+        }
+
+        .system-log {
+            color: #888888;
+        }
+
+        /* Typing Area */
+        .prompt {
+            color: var(--prompt-color);
+            font-weight: bold;
+        }
+
+        .correct { color: var(--text-primary); }
+        .target { color: var(--text-ghost); }
+        .incorrect { color: #fff; background-color: var(--text-error); border-radius: 1px; }
+
+        .cursor {
+            display: inline-block;
+            width: 7px;
+            height: 15px;
+            background-color: var(--text-primary);
+            vertical-align: middle;
+            margin-left: 2px;
+            animation: blink 1.2s step-end infinite;
+        }
+
+        @keyframes blink { 50% { opacity: 0; } }
+
+        #hidden-input {
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+            opacity: 0;
+        }
+
+        /* Bottom Status Bar */
+        .bottom-status {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: #111;
+            font-size: 11px;
+            color: var(--accent);
+            padding: 6px 25px env(safe-area-inset-bottom, 6px);
+            border-top: 1px solid #222;
+            display: flex;
+            justify-content: space-between;
+            box-sizing: border-box;
+            z-index: 100;
+        }
+
+        .clock-display { color: var(--text-primary); font-weight: bold; }
+    </style>
+</head>
+<body onclick="document.getElementById('hidden-input').focus()">
+
+    <div id="terminal-wrapper">
+        <div class="header-banner">
+Last login: <span id="login-timestamp"></span> on ttys002
+[SECURITY] MODE: STEGANOGRAPHIC MASKING ACTIVE.
+All data is being tunneled through standard plaintext buffers.
+Encryption Engine: Verifying entropy... [OK]
+        </div>
+
+        <div id="log-history"></div>
+
+        <div class="log-line">
+            <span class="prompt">root@node-01:~$ </span><span id="typing-area"></span><span class="cursor"></span>
+        </div>
+    </div>
+
+    <div class="bottom-status">
+        <div style="display: flex; gap: 20px;">
+            <span>[TUNNEL: STABLE]</span>
+            <span>[MASKING: ON]</span>
+        </div>
+        <div class="clock-display" id="live-clock">--:--:--</div>
+    </div>
+    
+    <input type="text" id="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+
+    <script>
+        // RANDOM TOPICS: History, Science, Art, Nature, Philosophy
+        const paragraphs = [
+            "The Great Barrier Reef is the world's largest coral reef system, composed of over twenty-nine hundred individual reefs and nine hundred islands stretching for over twenty-three hundred kilometres. It can be seen from outer space and is the world's biggest single structure made by living organisms.",
+            "The fall of the Western Roman Empire was a long process of decline in which the Empire failed to enforce its rule, and its vast territory was divided into several successor polities. The Roman Empire lost the strengths that had allowed it to exercise effective control over its Western provinces for centuries.",
+            "Jupiter is the fifth planet from the Sun and the largest in the Solar System. It is a gas giant with a mass more than two and a half times that of all the other planets in the Solar System combined, but slightly less than one-thousandth the mass of the Sun.",
+            "The Renaissance was a fervent period of European cultural, artistic, political and economic rebirth following the Middle Ages. Generally described as taking place from the fourteenth century to the seventeenth century, the Renaissance promoted the rediscovery of classical philosophy, literature and art.",
+            "Honey bees are a subset of bees in the genus Apis, primarily distinguished by the production and storage of honey and the construction of perennial, colonial nests from wax. They are the only surviving members of the tribe Apini, known for their complex social structures and communication through dance.",
+            "Stoicism is a school of Hellenistic philosophy founded by Zeno of Citium in Athens in the early third century BCE. It is a philosophy of personal ethics informed by its system of logic and its views on the natural world, suggesting that the path to happiness is found in accepting the present moment.",
+            "The Industrial Revolution was the transition to new manufacturing processes in Europe and the United States, in the period from about seventeen-sixty to sometime between eighteen-twenty and eighteen-forty. This transition included going from hand production methods to machines and new chemical manufacturing."
+        ];
+
+        const systemLogs = [
+            "kernel: tunneld[42]: masking data via academic_plaintext_v4",
+            "systemd[1]: Buffer synchronized with remote node.",
+            "kernel: [0xaf2129] Entropy pool successfully replenished.",
+            "auditd[12]: Keystroke integrity verified via SHA-256.",
+            "sshd[901]: Routing masked packet through proxy loop.",
+            "kernel: TCP_KEEPALIVE: Interval set to 7200 seconds.",
+            "SecurityAgent: Steganography layers 1-4 active."
+        ];
+
+        // Persistence Management
+        let history = JSON.parse(localStorage.getItem('stego_hist')) || [];
+        let currentTarget = localStorage.getItem('stego_target') || paragraphs[0];
+        let sessionStartTime = localStorage.getItem('stego_start') || new Date().toLocaleString();
+        
+        if (!localStorage.getItem('stego_start')) localStorage.setItem('stego_start', sessionStartTime);
+        
+        const historyEl = document.getElementById('log-history');
+        const typingEl = document.getElementById('typing-area');
+        const inputEl = document.getElementById('hidden-input');
+        const clockEl = document.getElementById('live-clock');
+
+        document.getElementById('login-timestamp').innerText = sessionStartTime;
+
+        function save() {
+            localStorage.setItem('stego_hist', JSON.stringify(history));
+            localStorage.setItem('stego_target', currentTarget);
+        }
+
+        function updateClock() {
+            const now = new Date();
+            clockEl.innerText = now.toLocaleTimeString('en-GB', { hour12: false });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function render() {
+            historyEl.innerHTML = history.map(item => {
+                return `<div class="log-line"><span class="timestamp">[${item.time}]</span><span class="system-log">${escapeHtml(item.msg)}</span></div>`;
+            }).join('');
+
+            let html = '';
+            for (let i = 0; i < currentTarget.length; i++) {
+                let char = currentTarget[i];
+                if (i < inputEl.value.length) {
+                    html += `<span class="${inputEl.value[i] === char ? 'correct' : 'incorrect'}">${char === ' ' ? '&nbsp;' : escapeHtml(char)}</span>`;
+                } else {
+                    html += `<span class="target">${char === ' ' ? '&nbsp;' : escapeHtml(char)}</span>`;
+                }
+            }
+            typingEl.innerHTML = html;
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function getCurrentTime() {
+            const now = new Date();
+            return now.toLocaleTimeString('en-GB', { hour12: false }) + "." + String(now.getMilliseconds()).padStart(3, '0');
+        }
+
+        inputEl.addEventListener('input', () => {
+            if (inputEl.value === currentTarget) {
+                history.push({ time: getCurrentTime(), msg: "PLAINTEXT BUFFER SUBMITTED. MASKING NEXT SEGMENT..." });
+                if (history.length > 50) history.shift();
+                
+                let next;
+                do { next = paragraphs[Math.floor(Math.random() * paragraphs.length)]; } while (next === currentTarget);
+                
+                currentTarget = next;
+                inputEl.value = "";
+                save();
+            }
+            render();
+        });
+
+        function injectNoise() {
+            const noise = systemLogs[Math.floor(Math.random() * systemLogs.length)];
+            history.push({ time: getCurrentTime(), msg: noise });
+            if (history.length > 50) history.shift();
+            render();
+            save();
+            setTimeout(injectNoise, Math.random() * 30000 + 15000);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === ' ' && e.target === document.body) e.preventDefault();
+        });
+
+        render();
+        setTimeout(injectNoise, 8000);
+        inputEl.focus();
+        document.addEventListener('touchstart', () => inputEl.focus());
+    </script>
+</body>
+</html>
